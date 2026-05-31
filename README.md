@@ -81,7 +81,7 @@ examples/
   example_results.json       query outputs
   performance_analysis.json  benchmark results
 logs/                per-query JSON logs
-REPORT.md            full writeup
+QueryResults.md            full writeup
 ```
 
 ## Performance (measured)
