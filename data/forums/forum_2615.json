@@ -1,0 +1,43 @@
+{
+  "id": "forum_2615",
+  "source_type": "forum",
+  "title": "Does Langchain run locally?",
+  "url": "https://forum.langchain.com/t/does-langchain-run-locally/2615",
+  "date": "2025-12-29T11:34:05.949Z",
+  "created_at": "2025-12-29T11:34:05.949Z",
+  "last_posted_at": "2025-12-30T18:06:23.071Z",
+  "tags": [
+    "python-help"
+  ],
+  "views": 221,
+  "posts": [
+    {
+      "post_number": 1,
+      "author": "Sarthak",
+      "role": "user",
+      "created_at": "2025-12-29T11:34:06.000Z",
+      "body": "Hi everyone, I am getting started with langchain (python). My use case involves medical data and thus it cannot be uploaded to any thirty party server. Currently we have an agreement with OpenAI and thus we are fine calling OpenAI’s models to process our data. My question is, when I use langchain on my local machine, apart from from calling proprietary LLM’s and thus passing data to their servers, does everything else on langchain run locally, i.e. my data goes nowhere apart from the third party LLMs?\nAny help in this regard would be greatly appreciated!"
+    },
+    {
+      "post_number": 2,
+      "author": "mdrxy",
+      "role": "LangChain Team",
+      "created_at": "2025-12-29T22:48:34.899Z",
+      "body": "Correct, LangChain does not collect any telemetry unless you explicitly enable\nLangSmith tracing\n."
+    },
+    {
+      "post_number": 3,
+      "author": "Sarthak",
+      "role": "user",
+      "created_at": "2025-12-30T09:58:45.011Z",
+      "body": "Thanks for the reply! Since a lot of components of langchain are built on top of langgraph, I am assuming it would be the same for LangGraph, i.e. LangGraph does not collect any telemetry data either?"
+    },
+    {
+      "post_number": 4,
+      "author": "mdrxy",
+      "role": "LangChain Team",
+      "created_at": "2025-12-30T18:06:23.071Z",
+      "body": "Correct"
+    }
+  ]
+}

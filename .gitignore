@@ -1,0 +1,9 @@
+.venv/
+__pycache__/
+*.pyc
+chroma_db/
+logs/
+.env
+examples/example_results.json
+examples/performance_analysis.json
+.DS_Store

@@ -1,0 +1,78 @@
+{
+  "id": "forum_1828",
+  "source_type": "forum",
+  "title": "Could not find \"RecursiveCharacterTextSplitter\"",
+  "url": "https://forum.langchain.com/t/could-not-find-recursivecharactertextsplitter/1828",
+  "date": "2025-10-15T09:13:08.571Z",
+  "created_at": "2025-10-15T09:13:08.571Z",
+  "last_posted_at": "2025-11-27T12:12:33.579Z",
+  "tags": [
+    "python-help"
+  ],
+  "views": 2825,
+  "posts": [
+    {
+      "post_number": 1,
+      "author": "Najiya",
+      "role": "user",
+      "created_at": "2025-10-15T09:13:08.727Z",
+      "body": "I could not find ‘RecursiveCharacterTextSplitter’ in the langchain pakage >1.0.0a10\nwhat is the alternative?"
+    },
+    {
+      "post_number": 2,
+      "author": "pawel-twardziak",
+      "role": "LangChain Expert",
+      "created_at": "2025-10-15T09:55:37.189Z",
+      "body": "hi\n@Najiya\nI guess it is still there\nScreenshot from 2025-10-15 11-54-42\n967×651 93.4 KB"
+    },
+    {
+      "post_number": 3,
+      "author": "Najiya",
+      "role": "user",
+      "created_at": "2025-10-15T10:51:23.873Z",
+      "body": "It looks like the package structure has changed. Previously, I used to import it with\nfrom langchain.text_splitter import RecursiveCharacterTextSplitter\n, but now it’s available in the\nlangchain_text_splitters\nmodule."
+    },
+    {
+      "post_number": 4,
+      "author": "KansaiUser",
+      "role": "user",
+      "created_at": "2025-11-25T07:41:16.075Z",
+      "body": "It looks like the package structure has changed. Previously, I used to import it with\nfrom langchain.text_splitter import RecursiveCharacterTextSplitter\n, but now it’s available in the\nlangchain_text_splitters\nmodule.\nIn langchain 1.1.0 this does not work either"
+    },
+    {
+      "post_number": 5,
+      "author": "KansaiUser",
+      "role": "user",
+      "created_at": "2025-11-25T07:51:18.168Z",
+      "body": "The solution was to use\napi.python.langchain.com\nlangchain_text_splitters.character.RecursiveCharacterTextSplitter — 🦜🔗..."
+    },
+    {
+      "post_number": 6,
+      "author": "Najiya",
+      "role": "user",
+      "created_at": "2025-11-26T11:56:14.283Z",
+      "body": "I think it is still present\nimage\n1037×635 88.3 KB"
+    },
+    {
+      "post_number": 7,
+      "author": "pawel-twardziak",
+      "role": "LangChain Expert",
+      "created_at": "2025-11-26T13:55:32.880Z",
+      "body": "still there\nimage\n435×409 11.6 KB\nbtw\n@Najiya\ncould you mark this topic as completed/closed?\nSo that we consider this version-snapshot-related solution done and no other comment should be possible.\nIt is applied automatically to new posts (12h to complete/close after solving), but it is not retroactive."
+    },
+    {
+      "post_number": 8,
+      "author": "Najiya",
+      "role": "user",
+      "created_at": "2025-11-27T04:10:17.643Z",
+      "body": "I’ve marked the answer as the solution, but I’m not sure how to mark it as completed or closed. How do I do that?"
+    },
+    {
+      "post_number": 9,
+      "author": "pawel-twardziak",
+      "role": "LangChain Expert",
+      "created_at": "2025-11-27T12:12:33.579Z",
+      "body": "Thanks\n@Najiya\nActually I have no idea, I have no permission to close topics. Maybe it only refers to new posts."
+    }
+  ]
+}

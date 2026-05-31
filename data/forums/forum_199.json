@@ -1,0 +1,90 @@
+{
+  "id": "forum_199",
+  "source_type": "forum",
+  "title": "How to delete traces or runs?",
+  "url": "https://forum.langchain.com/t/how-to-delete-traces-or-runs/199",
+  "date": "2025-07-02T11:36:24.882Z",
+  "created_at": "2025-07-02T11:36:24.882Z",
+  "last_posted_at": "2026-05-28T14:21:44.982Z",
+  "tags": [],
+  "views": 1552,
+  "posts": [
+    {
+      "post_number": 1,
+      "author": "joe",
+      "role": "user",
+      "created_at": "2025-07-02T11:36:24.925Z",
+      "body": "When a user deletes their account I want to delete all the user data on langsmith.\nI have run ids stored in my db. How do I delete all traces/runs of that user based on these run ids?"
+    },
+    {
+      "post_number": 2,
+      "author": "AbdulBasit",
+      "role": "user",
+      "created_at": "2025-07-02T18:34:18.143Z",
+      "body": "LangSmith doesn’t have a direct bulk delete API for runs. You’ll need to delete runs individually using the LangSmith SDK:\nfrom langsmith import Client\n\nclient = Client()\nfor run_id in user_run_ids:\n    try:\n        client.delete_run(run_id)\n    except Exception as e:\n        # Handle errors (run might not exist)\n        continue\nFor large datasets, batch this operation and add rate limiting to avoid API limits. Alternatively, contact LangSmith support for bulk deletion assistance if you have thousands of runs. Note that deleted runs may still appear in aggregated metrics but individual trace data will be removed."
+    },
+    {
+      "post_number": 3,
+      "author": "Isaac",
+      "role": "LangChain Team",
+      "created_at": "2025-07-03T20:17:53.259Z",
+      "body": "There is a batch delete endpoint that you can access through the API\nhere"
+    },
+    {
+      "post_number": 4,
+      "author": "joe",
+      "role": "user",
+      "created_at": "2025-07-08T06:39:31.854Z",
+      "body": "Thanks!"
+    },
+    {
+      "post_number": 6,
+      "author": "mariana",
+      "role": "user",
+      "created_at": "2025-10-15T10:03:06.880Z",
+      "body": "I tried using this and I get asked for a session_id that does not exist for my traces, why can’t I delete just using the trace_id?"
+    },
+    {
+      "post_number": 7,
+      "author": "angus",
+      "role": "Leader",
+      "created_at": "2025-10-16T16:08:19.289Z",
+      "body": "Hi\n@mariana\nsession_id is just the project ID for the trace you are trying to delete. You can find it on the tracer project page\nScreenshot 2025-10-16 at 9.07.52 AM\n1438×548 72 KB"
+    },
+    {
+      "post_number": 8,
+      "author": "mariana",
+      "role": "user",
+      "created_at": "2025-10-17T09:26:26.315Z",
+      "body": "thank you! I used session_id before, but it was related to threads"
+    },
+    {
+      "post_number": 9,
+      "author": "mariana",
+      "role": "user",
+      "created_at": "2025-10-17T12:36:39.061Z",
+      "body": "Isaac:\nhere\nEven though I have done this I get “Run deletes queued\", but nothing gets deleted. I have no way to debug because even if I pass a wrong id it still says the same"
+    },
+    {
+      "post_number": 10,
+      "author": "angus",
+      "role": "Leader",
+      "created_at": "2025-10-17T16:33:48.814Z",
+      "body": "docs.smith.langchain.com\nData Purging for Compliance | 🦜️🛠️ LangSmith\nThis guide covers the various features available after data reaches LangSmith Cloud servers to help you achieve your privacy goals.\nTrace deletions are processed during non-peak usage times and are not instant, usually within a few hours. There is no confirmation of deletion - you’ll need to query the data again to verify it has been removed.\nWe process these deletions over the weekend now"
+    },
+    {
+      "post_number": 11,
+      "author": "tefrati",
+      "role": "user",
+      "created_at": "2025-11-17T20:09:53.841Z",
+      "body": "Hello there,\nAdding to what Mariana said above. The response status and messages are misleading. We’re getting “Run deletes queued” 202 response whether the metadata matched to actual traces or not. Same thing for trace_ids.\nWe need to have a better way to know if the request body matches actual traces in our projects. We also need a better way to know if traces were actually deleted. Asking us to check on Monday to see if it was deleted is not good enough. What if traces were not deleted? Should we try again, week after week?\nThank you"
+    },
+    {
+      "post_number": 12,
+      "author": "benlammers",
+      "role": "user",
+      "created_at": "2026-05-28T14:21:44.982Z",
+      "body": "Jumping into this thread because also finding deleting traces to be a frustrating experience with the current API endpoints. Similar to tefrati’s comments it is difficult to have confidence that the data will be removed.\nThe documentation for these endpoints is also unclear as it incorrectly indicates to expect a 200 response and that data will be deleted typically “within a few hours” not just on weekends, also for /v1/runs/delete it is unclear to me if there is a limit to the number of runs that can be queued for deletion using a metadata filter.\nex. if I use metadata organization:x and that matches 1000s of runs, would they all be queued for deletion.\nClarification here would be greatly appreciated!"
+    }
+  ]
+}

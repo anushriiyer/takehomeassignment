@@ -1,0 +1,55 @@
+{
+  "id": "forum_3077",
+  "source_type": "forum",
+  "title": "How to enable LangSmith tracing in my project?",
+  "url": "https://forum.langchain.com/t/how-to-enable-langsmith-tracing-in-my-project/3077",
+  "date": "2026-03-06T06:32:13.288Z",
+  "created_at": "2026-03-06T06:32:13.288Z",
+  "last_posted_at": "2026-03-06T10:15:24.933Z",
+  "tags": [],
+  "views": 169,
+  "posts": [
+    {
+      "post_number": 1,
+      "author": "Najiya",
+      "role": "user",
+      "created_at": "2026-03-06T06:32:13.331Z",
+      "body": "Can you explain how to enable LangSmith tracing in my project?\nUsually, what I do is create a\n.env\nfile with the following variables:\nLANGSMITH_TRACING=true\nLANGSMITH_ENDPOINT=https://api.smith.langchain.com\nLANGSMITH_API_KEY=.....\nLANGSMITH_PROJECT=.....\nThen in my project I import:\nfrom dotenv import load_dotenv\nfrom langsmith import Client\nIs this still the correct way to configure it, or is there a newer recommended approach?"
+    },
+    {
+      "post_number": 2,
+      "author": "pawel-twardziak",
+      "role": "LangChain Expert",
+      "created_at": "2026-03-06T07:15:06.671Z",
+      "body": "Hi\n@Najiya\nYes, this is more or less enough. I’m not sure you need LANGSMITH_ENDPOINT.\nI’m dropping some links:\nTracing quickstart - Docs by LangChain\nTrace OpenAI applications - Docs by LangChain\nCustom instrumentation - Docs by LangChain\nTrace without setting environment variables - Docs by LangChain\nConditional tracing - Docs by LangChain\nTrace LangChain applications (Python and JS/TS) - Docs by LangChain\nLog traces to a specific project - Docs by LangChain\nTroubleshoot variable caching - Docs by LangChain"
+    },
+    {
+      "post_number": 3,
+      "author": "Najiya",
+      "role": "user",
+      "created_at": "2026-03-06T09:40:10.369Z",
+      "body": "Earlier I used to enable tracing the way I described, and it was working fine. But at some point it stopped tracing.\nWhen I checked the documentation recently, I saw examples using\nClient()\nand the\n@traceable\ndecorator along with the OpenAI client. But what if I’am not using  OpenAI or don’t have an OpenAI API key, how should I enable LangSmith tracing?"
+    },
+    {
+      "post_number": 4,
+      "author": "pawel-twardziak",
+      "role": "LangChain Expert",
+      "created_at": "2026-03-06T10:07:18.264Z",
+      "body": "Hi\n@Najiya\nTrue, the\n@traceable\ndecorator and\nwrap_openai\nexamples in the docs can make it look like LangSmith tracing is OpenAI-specific - it’s absolutely not.\nThe core setup hasn’t changed. You only need two environment variables:\nexport LANGSMITH_TRACING=true\nexport LANGSMITH_API_KEY=<your-api-key>\nLANGSMITH_PROJECT\nis optional (defaults to\n\"default\"\n), and\nLANGSMITH_ENDPOINT\nis only needed if you’re self-hosting - for the hosted service at\napi.smith.langchain.com\nyou can omit it entirely.\nSo your\n.env\nfile should actually look like:\nLANGSMITH_TRACING=true\nLANGSMITH_API_KEY=lsv2_pt_xxxxxxxxxxxx\nLANGSMITH_PROJECT=my-project   # optional\nIf you’re building with LangChain (chains, agents, tools), you don’t need to do anything extra. LangChain auto-traces all invocations when\nLANGSMITH_TRACING=true\nis set. No decorators, no wrappers, no\nClient()\nneeded:\nfrom dotenv import load_dotenv\nload_dotenv() \n\nfrom langchain_openai import ChatOpenAI\nfrom langchain_core.prompts import ChatPromptTemplate\nfrom langchain_core.output_parsers import StrOutputParser\n\nprompt = ChatPromptTemplate.from_messages([\n    (\"system\", \"You are a helpful assistant.\"),\n    (\"user\", \"{question}\")\n])\nmodel = ChatOpenAI(model=\"gpt-4.1-mini\")\nchain = prompt | model | StrOutputParser()\n\n# This is automatically traced in LangSmith - no extra code needed!\nchain.invoke({\"question\": \"What is LangSmith?\"})\nThis works the same way regardless of the LLM provider -\nChatOpenAI\n,\nChatAnthropic\n,\nChatOllama\n,\nChatGoogleGenerativeAI\n, etc. The tracing comes from LangChain’s callback system, not from the provider.\nUnder the hood, LangChain’s callback manager checks if tracing is enabled and automatically adds a\nLangChainTracer\nto every invocation (\nsource:\nlangchain_core/callbacks/manager.py\n).\nIf you’re not using LangChain - use\n@traceable\nThe\n@traceable\ndecorator is for any oython function, not just OpenAI calls. It creates trace spans in LangSmith:\nfrom dotenv import load_dotenv\nload_dotenv()\n\nfrom langsmith import traceable\n\n@traceable\ndef my_pipeline(question: str) -> str:\n    context = retrieve_docs(question)\n    answer = call_my_llm(question, context)\n    return answer\n\n@traceable(run_type=\"retriever\", name=\"Document Retrieval\")\ndef retrieve_docs(question: str) -> list:\n    return [\"doc1\", \"doc2\"]\n\n@traceable(run_type=\"llm\")\ndef call_my_llm(question: str, context: str) -> str:\n    return \"some answer\"\n\nmy_pipeline(\"What happened in the meeting?\")\nNon-OpenAI Provider Wrappers\nLangSmith provides dedicated wrappers for other providers too. For example, Anthropic:\nimport anthropic\nfrom langsmith import traceable\nfrom langsmith.wrappers import wrap_anthropic\n\nclient = wrap_anthropic(anthropic.Anthropic())\n\n@traceable(name=\"Chat Pipeline\")\ndef chat_pipeline(question: str):\n    message = client.messages.create(\n        model=\"claude-sonnet-4-6\",\n        messages=[{\"role\": \"user\", \"content\": question}],\n        max_tokens=1024,\n    )\n    return message\n\nchat_pipeline(\"Summarize this morning's meetings\")"
+    },
+    {
+      "post_number": 5,
+      "author": "Najiya",
+      "role": "user",
+      "created_at": "2026-03-06T10:09:41.785Z",
+      "body": "I referred to one of the links you shared and tried the following approach:\nimport langsmith as ls\n\n# You can create a client instance with an api key and api url\nclient = ls.Client(\n    api_key=\"YOUR_API_KEY\",  # This can be retrieved from a secrets manager\n    api_url=\"https://api.smith.langchain.com\",\n)\n\n# You can pass the client and project_name to the tracing_context\nwith ls.tracing_context(client=client, project_name=\"test-no-env\", enabled=True):\n    chain.invoke({\"question\": \"Am I using a callback?\", \"context\": \"I'm using a callback\"})\nWith this setup, tracing is now working and I’m able to see the runs in LangSmith.\nThank you!"
+    },
+    {
+      "post_number": 6,
+      "author": "pawel-twardziak",
+      "role": "LangChain Expert",
+      "created_at": "2026-03-06T10:15:24.933Z",
+      "body": "Great if it helps\n@Najiya\nHuge favor, mark this post as\nSolved\nfor the others so they can get benefits from it\nThanks in advance!"
+    }
+  ]
+}

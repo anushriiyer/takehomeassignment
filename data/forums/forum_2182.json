@@ -1,0 +1,50 @@
+{
+  "id": "forum_2182",
+  "source_type": "forum",
+  "title": "Controlled Tool Calling in LangChain",
+  "url": "https://forum.langchain.com/t/controlled-tool-calling-in-langchain/2182",
+  "date": "2025-11-13T00:25:21.185Z",
+  "created_at": "2025-11-13T00:25:21.185Z",
+  "last_posted_at": "2025-11-13T22:38:27.982Z",
+  "tags": [
+    "python-help"
+  ],
+  "views": 526,
+  "posts": [
+    {
+      "post_number": 1,
+      "author": "TheThingKnownAsKit",
+      "role": "user",
+      "created_at": "2025-11-13T00:25:21.238Z",
+      "body": "I am attempting to make a LangChain agent that uses Playwright to interact with websites. Due to the dynamic requirements of every website, there is no set structure for what tools should be called in what order because the agent should be able to intelligently navigate through a website. I have successfully gotten the agent to visit specific URLs but I am running into issues getting it to call more than one tool. Playwright ends up aborting the operation and I am pretty sure it’s because while it is in the middle of processing one page function call, another one happens and it aborts. I am unsure how I should be getting LangChain to be able to call tools in a flexible order while also ensuring it does not execute multiple tools that interfere with each other.\nAre there any suggestions on the best way to go about this? I have considered using LangGraph or making it synchronous and neither really worked out, but I am also new to this and could have missed something. Any ideas or input would be appreciated\nMy current code is below\nimport asyncio, os\nfrom dotenv import load_dotenv\nfrom playwright.async_api import Page, async_playwright, Playwright\nfrom langchain.agents import create_agent\nfrom langchain_ollama import ChatOllama\nfrom langchain.tools import tool\n\nclass PlaywrightAgent:\n\n    page: Page\n    base_url: str\n\n    def __init__(self, page: Page) -> None:\n        self.page = page\n\n        load_dotenv()\n        self.base_url = os.getenv(\"OLLAMA_BASE_URL\")\n\n    async def create_playwright_agent(playwright: Playwright):\n        chromium = playwright.chromium\n        browser = await chromium.launch(headless=False)\n        page = await browser.new_page()\n        return PlaywrightAgent(page=page)\n    \n    async def _visit_url(self, url: str) -> str:\n        await self.page.goto(url=url, wait_until=\"domcontentloaded\", timeout=15000)\n        return self.page.url\n\n    async def _go_back(self) -> None:\n        await self.page.go_back()\n    \n    def get_tools(self):\n        @tool\n        async def visit_url(url: str) -> str:\n            \"\"\"\n            Visit a specified URL.\n\n            Args:\n                url (str): The URL to visit.\n            \n            Returns:\n                The current url the Page is on.\n            \"\"\"\n            return await self._visit_url(url)\n\n        @tool\n        async def go_back() -> None:\n            \"\"\"\n            Go back to the previous page in the browser history.\n\n            Args:\n                None\n            \n            Returns:\n                None\n            \"\"\"\n            return await self._go_back()\n\n        return [visit_url, go_back]\n\n    async def run(self):\n        tools = self.get_tools()\n\n        model = ChatOllama(\n            model=\"llama3.1\",\n            temperature=0.1,\n            max_tokens=4096,\n            timeout=30,\n            base_url=self.base_url,\n        )\n\n        agent = create_agent(\n            model=model,\n            tools=tools,\n            system_prompt=\"You are a web browsing agent meant to use your Playwright tools to interact with web pages.\"\n        )\n\n        async for event in agent.astream(\n            input={\"messages\": [{\"role\": \"user\", \"content\": \"Use your visit_url tool to visit the website https://httpbin.org. Then visit https://whati.me/. After that, use your tool to go back a page.\"}]},\n            stream_mode=\"debug\",\n            print_mode=\"debug\"\n        ):\n            print(event)\n\n\nasync def main():\n    playwright = await async_playwright().start()\n    agent = await PlaywrightAgent.create_playwright_agent(playwright=playwright)\n    await agent.run()\n\n    await asyncio.sleep(3600)\nasyncio.run(main())"
+    },
+    {
+      "post_number": 2,
+      "author": "pawel-twardziak",
+      "role": "LangChain Expert",
+      "created_at": "2025-11-13T12:38:51.194Z",
+      "body": "Hi\n@TheThingKnownAsKit\nhave you tried doing that via Agent middleware?\nMiddleware - Docs by LangChain"
+    },
+    {
+      "post_number": 3,
+      "author": "eyurtsev",
+      "role": "LangChain Team",
+      "created_at": "2025-11-13T16:26:58.445Z",
+      "body": "Take a look at the model docs\nModels - Docs by LangChain\nYou should be able to disable parallel tool calling.\nYou will also need to be careful to make sure that the playwright session is tied to a particular thread id if you plan on running this as a server."
+    },
+    {
+      "post_number": 4,
+      "author": "TheThingKnownAsKit",
+      "role": "user",
+      "created_at": "2025-11-13T21:26:36.408Z",
+      "body": "For now I am using manual asyncio locks on the tools. Disabling parallel tool calling didn’t fix the issue and middleware probably could fix the issue but looks like it would take significantly more time. For now this is working\nclass PlaywrightAgent:\n\n    page: Page\n    base_url: str\n    _lock: asyncio.Lock\n\n....\n\n   async def _visit_url(self, url: str) -> str:\n          async with self._lock:\n              await self.page.goto(url=url)\n          return self.page.url"
+    },
+    {
+      "post_number": 5,
+      "author": "pawel-twardziak",
+      "role": "LangChain Expert",
+      "created_at": "2025-11-13T22:38:27.982Z",
+      "body": "asyncio.Lock()\nis quite a neat solution imho, not just a simple fix, though the middleware approach may seem to be more idiomatic. Nice solution\n@TheThingKnownAsKit"
+    }
+  ]
+}

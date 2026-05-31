@@ -1,0 +1,71 @@
+{
+  "id": "forum_3063",
+  "source_type": "forum",
+  "title": "Prevent last LLM call after tool calls",
+  "url": "https://forum.langchain.com/t/prevent-last-llm-call-after-tool-calls/3063",
+  "date": "2026-03-02T18:13:16.996Z",
+  "created_at": "2026-03-02T18:13:16.996Z",
+  "last_posted_at": "2026-03-16T14:11:12.694Z",
+  "tags": [
+    "python-help"
+  ],
+  "views": 234,
+  "posts": [
+    {
+      "post_number": 1,
+      "author": "eric-burel",
+      "role": "user",
+      "created_at": "2026-03-02T18:13:17.049Z",
+      "body": "Hi folks,\nIn a `create_agent` loop, is it possible to prevent the very last LLM call to happen?\nFor instance say that model wants to call tool 1, then tool 2 to solve an issue, with 2 rounds of the agentic loop.\nI’d like the agent to output the JSON of tool 2 but NOT feed it back to the LLM.\nMost of my “final” tool will output a comprehensive response that doesn’t need the final LLM interpretation and could be sent to user as is.\nI feel like the problem is that the agent loop termination is based on whether the LLM calls a tool or not, at least last time I’ve checked LangGraph react agent template.\nIt might be more efficient to allow the  model to output a termination boolean alongside the final tool call to stop the loop? Is that doable in LangChain without falling back to LangGraph?"
+    },
+    {
+      "post_number": 2,
+      "author": "pawel-twardziak",
+      "role": "LangChain Expert",
+      "created_at": "2026-03-02T18:26:10.258Z",
+      "body": "hi\n@eric-burel\nuse\nreturn_direct\nprop of the\ntool\ndecorator or\nBaseTool\nsubclass\nreturn_direct | langchain_core | LangChain Reference"
+    },
+    {
+      "post_number": 3,
+      "author": "eric-burel",
+      "role": "user",
+      "created_at": "2026-03-02T18:37:25.021Z",
+      "body": "Interesting, it’s a step forward but that means that you need to define some tools that are specifically considered as “end tools” that kills the agent loop. That works for certain use case but I really feel like the agent loop itself is not 100% efficient, I wonder if some model provider do output this kind of “done” flag."
+    },
+    {
+      "post_number": 4,
+      "author": "pawel-twardziak",
+      "role": "LangChain Expert",
+      "created_at": "2026-03-02T18:39:49.342Z",
+      "body": "do you build with custom state  graph, or\ncreate_agent\n/\ncreate_deep_agent\n?"
+    },
+    {
+      "post_number": 5,
+      "author": "eric-burel",
+      "role": "user",
+      "created_at": "2026-03-02T18:51:05.907Z",
+      "body": "I am looking for a `create_agent` solution, I suspect it would not be too hard to implement with a custom LangGraph graph (though there might be many gotchas) but I wonder about LangChain create_agent which is newer to me."
+    },
+    {
+      "post_number": 6,
+      "author": "pawel-twardziak",
+      "role": "LangChain Expert",
+      "created_at": "2026-03-02T19:05:50.677Z",
+      "body": "then look at the middleware funability\nCustom middleware - Docs by LangChain\n- you can control everything with this feature"
+    },
+    {
+      "post_number": 7,
+      "author": "eric-burel",
+      "role": "user",
+      "created_at": "2026-03-13T07:59:18.272Z",
+      "body": "Yeah so after pouring more thoughts on it, I think what could work is differentiating a notion of “tool call” vs “tool trigger”. Not sure yet of the best implementation but it could rely on asking explicitly the LLM whether it needs to process the ToolMessage, or if we can skip it and just go ahead with displaying the result to the end user, by generating a “fake” AI message with the tool result in it. Could be done in before_model perhaps."
+    },
+    {
+      "post_number": 8,
+      "author": "eric-burel",
+      "role": "user",
+      "created_at": "2026-03-16T14:11:12.694Z",
+      "body": "Another idea borrowed from AI SDK stop conditions : implementing something similar to the\n`hasToolCall`\nstopping condition + a special tool that I can intercept and treat as a special case, like a “shouldDisplayRawResult” tool. This way I let the agent pick whether the tool call should be “final” or not, using a special tool."
+    }
+  ]
+}

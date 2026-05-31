@@ -1,0 +1,92 @@
+{
+  "id": "forum_3433",
+  "source_type": "forum",
+  "title": "Multiple response formats when creating agents?",
+  "url": "https://forum.langchain.com/t/multiple-response-formats-when-creating-agents/3433",
+  "date": "2026-04-17T09:32:53.911Z",
+  "created_at": "2026-04-17T09:32:53.911Z",
+  "last_posted_at": "2026-04-18T18:25:51.549Z",
+  "tags": [
+    "python-help"
+  ],
+  "views": 141,
+  "posts": [
+    {
+      "post_number": 1,
+      "author": "Bergholdt",
+      "role": "user",
+      "created_at": "2026-04-17T09:32:53.976Z",
+      "body": "It seems like when creating agents using create_agent() it is only possible to give the agent a single response format.\nFor my specific project, I would like my agent to respond in different formats depending on the situation.\nCurrently I achieve this by using seperate create_agent() instances, but this doesn’t feel very satisfactory.\nIs there some way I can have a single agent, that is capable of following multiple response formats?\nOr any ideas to achieve a similar effect without multiple create_agent() instances?"
+    },
+    {
+      "post_number": 2,
+      "author": "pawel-twardziak",
+      "role": "LangChain Expert",
+      "created_at": "2026-04-17T10:22:04.868Z",
+      "body": "hi\n@Bergholdt\nI think you don’t need multiple agent instances. create_agent’s response_format accepts one strategy object, but that object can wrap many schemas. Three patterns:\nToolStrategy(Union[A, B, …]) - model picks the right schema per run. This is the documented, intended solution. Each union arm becomes a separate artificial structured-output tool (see _iter_variants in langchain/agents/structured_output.py).\nJSON Schema oneOf - same mechanism at the schema level if you’re not using Pydantic.\nwrap_model_call middleware that overwrites request.response_format - if you (not the model) decide the format based on runtime context, state, or the latest message. ModelRequest.response_format is a writable field, so one agent can dispatch to N formats per invocation.\nCaveat: only ToolStrategy expands unions. ProviderStrategy / AutoStrategy take a single schema, so to get provider-native validation you must pick one variant (option 3 is how)."
+    },
+    {
+      "post_number": 3,
+      "author": "Bergholdt",
+      "role": "user",
+      "created_at": "2026-04-17T10:59:37.461Z",
+      "body": "Hi\n@pawel-twardziak\nThanks for the reply!\nIt is indeed me that decides the format. I know the format I want beforehand.\nSo if I understand you right I could create a wrap_model_call middleware that directly changes the response_format of the agent?\nSo it does something like this?:\ndef wrap_model_call(request, handler):\nrequest.response_format = insert_current_format_here\nreturn handler(request)"
+    },
+    {
+      "post_number": 4,
+      "author": "pawel-twardziak",
+      "role": "LangChain Expert",
+      "created_at": "2026-04-17T11:26:05.835Z",
+      "body": "yes - that exact pattern works, with one important caveat about\nToolStrategy\nthat the docs don’t spell out.\nWhat the source code actually does after your middleware runs\nAfter\nwrap_model_call\nfires,\n_get_bound_model\nre-reads\nrequest.response_format\n(\nlangchain/agents/factory.py:1198\n) and rebuilds the bound model from it. So mutating\nrequest.response_format\ninside the handler is enough - no other plumbing is required.\nCaveat:\nToolStrategy\nswaps must be a\nsubset\nof the upfront declaration\nThis is buried in the factory but it will bite you if you don’t know it. When the final (post-middleware) format is a\nToolStrategy\n, the factory validates that every schema variant was declared when the agent was built:\n# sources/langchain/libs/langchain_v1/langchain/agents/factory.py\n# Middleware is allowed to change the response format\n# to a subset of the original structured tools when using ToolStrategy,\n# but not to add new structured tools that weren't declared upfront.\nfor tc in effective_response_format.schema_specs:\n    if tc.name not in structured_output_tools:\n        msg = (\n            f\"ToolStrategy specifies tool '{tc.name}' \"\n            \"which wasn't declared in the original \"\n            \"response format when creating the agent.\"\n        )\n        raise ValueError(msg)\nConcretely:\nIf you built the agent with\nresponse_format=ToolStrategy(A)\nand the middleware swaps in\nToolStrategy(B)\n, you get\nValueError\n-\nB\nwasn’t declared up front.\nThe fix: declare the\nsuperset\nas a Union at construction time, and let the middleware pick one variant per invocation.\nThis check does\nnot\napply to\nProviderStrategy\n. If you swap to\nProviderStrategy(X)\nwhere the model supports native structured output, the new schema is accepted without the upfront-declaration requirement.\nThe full pattern for a predetermined, per-invocation format\nSince you said you already know which format you want at call time, pass it via\ncontext_schema\n- that’s the read-only per-invocation channel the middleware docs recommend, and it’s exactly what\nruntime.context\nis for (see\ndocs/src/oss/langchain/context-engineering.mdx\n):\nfrom dataclasses import dataclass\nfrom typing import Callable, Union\n\nfrom pydantic import BaseModel\nfrom langchain.agents import create_agent\nfrom langchain.agents.middleware import wrap_model_call, ModelRequest, ModelResponse\nfrom langchain.agents.structured_output import ToolStrategy\n\n\nclass ProductReview(BaseModel): ...\nclass CustomerComplaint(BaseModel): ...\nclass SupportTicket(BaseModel): ...\n\nSCHEMAS = {\n    \"review\": ProductReview,\n    \"complaint\": CustomerComplaint,\n    \"ticket\": SupportTicket,\n}\n\n\n@dataclass\nclass Context:\n    response_format_key: str  # predetermined by the caller\n\n\n@wrap_model_call\ndef select_format(\n    request: ModelRequest,\n    handler: Callable[[ModelRequest], ModelResponse],\n) -> ModelResponse:\n    key = request.runtime.context.response_format_key\n    request.response_format = ToolStrategy(SCHEMAS[key])  # subset of the Union\n    return handler(request)\n\n\nagent = create_agent(\n    model=\"gpt-5\",\n    tools=tools,\n    # Declare the superset upfront so the subset swap above is always valid.\n    response_format=ToolStrategy(Union[ProductReview, CustomerComplaint, SupportTicket]),\n    middleware=[select_format],\n    context_schema=Context,\n)\n\nagent.invoke(\n    {\"messages\": [...]},\n    context=Context(response_format_key=\"complaint\"),\n)\nWhy this shape:\nThe Union on\ncreate_agent\npre-registers every tool that any invocation might need - that clears the factory’s subset check.\ncontext_schema\nis the right carrier for “the caller already decided”: it’s read-only, per-invocation, and doesn’t pollute state.\nwrap_model_call\nruns once per model step, so retries inside the same\ninvoke\nkeep the format you picked.\nIf instead you want to skip the Union gymnastics and your model has native structured output, swap to\nProviderStrategy(SCHEMAS[key])\nin the middleware - no upfront declaration needed, though you lose the Union fallback for providers without native support.\nSources\nSource (git repo):\nlangchain/libs/langchain_v1/langchain/agents/factory.py\nlines ~1196–1255 -\nresponse_format\nre-read after middleware, and the ToolStrategy subset validation.\nSource (git repo):\nlangchain/libs/langchain_v1/langchain/agents/middleware/types.py\nModelRequest.response_format\nis a writable dataclass field.\nDocs:\nOverview - Docs by LangChain\n-\nwrap_model_call\nsignature, editing the request, custom\ncontext_schema\n.\nDocs:\nContext engineering in agents - Docs by LangChain\n-\ncontext_schema\n+\nruntime.context\nas the per-invocation channel."
+    },
+    {
+      "post_number": 5,
+      "author": "Bergholdt",
+      "role": "user",
+      "created_at": "2026-04-17T11:59:02.820Z",
+      "body": "Wow thank you for the detailed response and guidance!\nIt’s much appreciated."
+    },
+    {
+      "post_number": 6,
+      "author": "pawel-twardziak",
+      "role": "LangChain Expert",
+      "created_at": "2026-04-17T12:18:00.184Z",
+      "body": "no problem - let me know if it works for you"
+    },
+    {
+      "post_number": 7,
+      "author": "Bergholdt",
+      "role": "user",
+      "created_at": "2026-04-18T12:11:47.690Z",
+      "body": "Worked like a charm!"
+    },
+    {
+      "post_number": 8,
+      "author": "Bergholdt",
+      "role": "user",
+      "created_at": "2026-04-18T16:27:23.776Z",
+      "body": "Hmm, actually I am not certain it is working.\nI am experiencing some issues.\nI will provide snippets of my code this time for context.\n# Response formats:\nclass AgentDecision(BaseModel): ...\nclass AgentJobSolution(BaseModel): ...\nclass AgentVote(BaseModel): ...\n\nRESPONSE_FORMATS = {\n    \"decision\": AgentDecision,\n    \"job_solve\": AgentJobSolution,\n    \"vote\": AgentVote,\n}\n\n@dataclass\nclass ResponseFormatContext:\n    response_format_key: Literal[\"decision\", \"job_solve\", \"vote\"]\n\n\nclass EnergyMiddleware(AgentMiddleware):\n    ...\n    def wrap_model_call(self, request, handler):\n        key = request.runtime.context.response_format_key\n        request.response_format = ToolStrategy(RESPONSE_FORMATS[key])\n        return handler(request)\n\n\nclass EnergyAgent:\n    ...\n        self._agent = create_agent(\n            model=model,\n            tools=tools,\n            middleware=[EnergyMiddleware(model_size=model_size)],\n            response_format=ToolStrategy(Union[AgentDecision, AgentJobSolution, AgentVote]),\n            context_schema=ResponseFormatContext\n        )\nThat is the setup.\nAnd then I am calling the agent down the road passing state info and setting the reponse_format_key accordingly. An example:\n# Invoke agent to make a decision\n        response = self._agent.invoke(\n            {\"messages\": decision_messages, \n            \"energy\": self.energy, \n            \"max_energy\": self.max_energy,\n            \"phase_log\": [],\n            },\n            context=ResponseFormatContext(response_format_key=\"decision\"),\n        )\nWhat I am noticing is that the agents don’t seem to have one specific response format as if I had called an agent that was just initialized with a single response format when using this approach.\nI am having problems where the agent is returning one of the other response formats.\nFor instance in a call from the invoke example above, the agent called the AgentDecision ToolStrategy instead and returned that format.\nWhen inspecting the EnergyMiddleware.wrap_model_call trace in LangSmith it also seems like the response format is not changed from the Union:\nimage\n996×788 38.7 KB\nI’m not sure if I am missing something?"
+    },
+    {
+      "post_number": 9,
+      "author": "pawel-twardziak",
+      "role": "LangChain Expert",
+      "created_at": "2026-04-18T16:34:39.410Z",
+      "body": "hi\n@Bergholdt\nalright, lemme follow up on this - thanks for reporting the issues!"
+    },
+    {
+      "post_number": 10,
+      "author": "pawel-twardziak",
+      "role": "LangChain Expert",
+      "created_at": "2026-04-18T18:07:43.233Z",
+      "body": "would it be possible for you to share the langsmith thread with me?"
+    },
+    {
+      "post_number": 11,
+      "author": "pawel-twardziak",
+      "role": "LangChain Expert",
+      "created_at": "2026-04-18T18:25:51.549Z",
+      "body": "in the meantime\ninstead of\n@wrap_model_call\ndef select_format(\n    request: ModelRequest,\n    handler: Callable[[ModelRequest], ModelResponse],\n) -> ModelResponse:\n    key = request.runtime.context.response_format_key\n    request.response_format = ToolStrategy(SCHEMAS[key])  # subset of the Union\n    return handler(request)\ntry this\nclass EnergyMiddleware(AgentMiddleware):\n      def wrap_model_call(self, request, handler):\n          key = request.runtime.context.response_format_key\n          return handler(\n              request.override(response_format=ToolStrategy(RESPONSE_FORMATS[key]))\n          )\nTwo changes: .override(…) returns a new ModelRequest, and you must forward that new request to handler. If you mutate in place and forward the original, the factory may still see the Union because of dataclass aliasing plus the deprecation path.\nAlso worth double-checking: that every invoke() passes context=ResponseFormatContext(response_format_key=“…”), and that the key actually exists in RESPONSE_FORMATS. Full known-good snippet is in the doc."
+    }
+  ]
+}

@@ -1,0 +1,64 @@
+{
+  "id": "forum_2274",
+  "source_type": "forum",
+  "title": "How do I trim messages stored in memory before invoking?",
+  "url": "https://forum.langchain.com/t/how-do-i-trim-messages-stored-in-memory-before-invoking/2274",
+  "date": "2025-11-20T14:06:08.578Z",
+  "created_at": "2025-11-20T14:06:08.578Z",
+  "last_posted_at": "2025-12-02T06:56:58.111Z",
+  "tags": [
+    "js-help"
+  ],
+  "views": 438,
+  "posts": [
+    {
+      "post_number": 1,
+      "author": "Younes",
+      "role": "user",
+      "created_at": "2025-11-20T14:06:08.755Z",
+      "body": "In the\ndocs\nit speaks about how to trim messages for short term memory in order to not exceed token windows. The problem is that the documentation is outdated. The ‘preModelHook‘ option is not available anymore. My question is, how can I do the same with the current version of langchain?"
+    },
+    {
+      "post_number": 2,
+      "author": "pawel-twardziak",
+      "role": "LangChain Expert",
+      "created_at": "2025-11-20T19:11:34.292Z",
+      "body": "Hi\n@Younes\nhave you tried middleware?\nOverview - Docs by LangChain\nUse agent middleware (the beforeModel hook) to trim or summarize messages before the model call, or use the built‑in summarizationMiddleware.\nBuilt-in one:\nimport { createAgent, summarizationMiddleware } from \"langchain\";\nimport { ChatOpenAI } from \"@langchain/openai\";\n\nconst agent = createAgent({\n  model: new ChatOpenAI({ model: \"gpt-4o\" }),\n  tools: [],\n  middleware: [\n    summarizationMiddleware({\n      model: new ChatOpenAI({ model: \"gpt-4o\" }),\n      trigger: { tokens: 4000, messages: 10 }, // when to summarize\n      keep: { messages: 20 },                  // how much to retain afterward\n    }),\n  ],\n});\nor your own middleware\nimport { createAgent, createMiddleware, trimMessages } from \"langchain\";\nimport { ChatOpenAI } from \"@langchain/openai\";\n\nconst trimHistory = createMiddleware({\n  name: \"TrimHistory\",\n  beforeModel: async (state) => ({\n    messages: await trimMessages(state.messages, {\n      strategy: \"last\",\n      maxTokens: 4000,\n      allowPartial: true,\n      includeSystem: true,\n      // Simple approximate counter; replace with your tokenizer if needed\n      tokenCounter: async (msgs) =>\n        msgs.reduce(\n          (sum, m) => sum + (typeof m.content === \"string\" ? m.content.length / 4 : 0),\n          0\n        ),\n    }),\n  }),\n});\n\nconst agent = createAgent({\n  model: new ChatOpenAI({ model: \"gpt-4o\" }),\n  tools: [],\n  middleware: [trimHistory],\n});"
+    },
+    {
+      "post_number": 3,
+      "author": "Younes",
+      "role": "user",
+      "created_at": "2025-11-24T06:41:31.453Z",
+      "body": "I am trying to create a middleware that trims the messages, but it doesn’t seem to be working. With my code snippet below I would expect the agent to not have any memory, since I am removing all previous messages. But it still has memory.\ntrimHistory = createMiddleware({\n     name: 'TrimHistory',\n     beforeModel: async (state) => ({\n     messages: [],\n    }),\n  });\n\nprivate readonly agent = createAgent({\n    model: new ChatOpenAI({ model: 'gpt-4o-mini' }),\n    tools: [retrieveDocuments],\n    contextSchema: z.object({ organisationId: z.number() }),\n    checkpointer: this.checkpointer,\n    middleware: [this.trimHistory],\n  });"
+    },
+    {
+      "post_number": 4,
+      "author": "pawel-twardziak",
+      "role": "LangChain Expert",
+      "created_at": "2025-11-27T22:44:29.770Z",
+      "body": "checkpointer: this.checkpointer,\nis the memory.\nIf the middleware does not work, there must be sth wrong with its implementation."
+    },
+    {
+      "post_number": 5,
+      "author": "Younes",
+      "role": "user",
+      "created_at": "2025-12-01T06:37:55.539Z",
+      "body": "This is the implementation:\nthis.checkpointer = PostgresSaver.fromConnString(\n      process.env.DATABASE_URL as string,\n    );"
+    },
+    {
+      "post_number": 6,
+      "author": "pawel-twardziak",
+      "role": "LangChain Expert",
+      "created_at": "2025-12-01T10:49:34.801Z",
+      "body": "I meant the middleware implementation.\nCould you share your entire code so that I could asses and test whether it is an implementation issue?"
+    },
+    {
+      "post_number": 7,
+      "author": "Younes",
+      "role": "user",
+      "created_at": "2025-12-02T06:56:58.111Z",
+      "body": "I’ll share all the parts that belong to the agent:\nconst retrieveDocuments = tool(\n  async ({ query }, config) => {\n    const { organisationId } = config.context;\n\n    const vectorStore = await PGVectorStore.initialize(embeddingsModel, {\n      tableName: 'embeddings',\n      postgresConnectionOptions: {\n        connectionString: process.env.DATABASE_URL,\n      },\n    });\n\n    const limit = 20;\n    const retrievedDocs = await vectorStore.similaritySearch(query, limit, {\n      organisationId,\n    });\n    const serialized = retrievedDocs\n      .map(\n        (doc) =>\n          `Source: ${doc.metadata.source}\\n${doc.metadata?.ogImage ? `ogImage: ${doc.metadata.ogImage}\\n` : ''}Content: ${doc.pageContent}`,\n      )\n      .join('\\n');\n\n    await vectorStore.end();\n    return [serialized, retrievedDocs];\n  },\n  {\n    name: 'retrieve',\n    description: 'Retrieve information related to a query.',\n    schema: z.object({ query: z.string() }),\n    responseFormat: 'content_and_artifact',\n  },\n);\n\nconst checkpointer = PostgresSaver.fromConnString(\n      process.env.DATABASE_URL as string,\n );\n\n\nconst agent = createAgent({\n      model: new ChatOpenAI({ model: 'gpt-4o-mini' }),\n      tools: [retrieveDocuments],\n      contextSchema: z.object({ organisationId: z.number() }),\n      responseFormat: z.object({\n        text: z.string().describe('A markdown repsonse to the user query'),\n        sources: z\n         .array(z.object({ url: z.string(), ogImage: z.string() }))\n         .describe('the sources used to come to an answer'),\n      }),\n      checkpointer: checkpointer,\n    });"
+    }
+  ]
+}

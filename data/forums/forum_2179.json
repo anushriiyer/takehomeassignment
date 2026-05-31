@@ -1,0 +1,57 @@
+{
+  "id": "forum_2179",
+  "source_type": "forum",
+  "title": "Is it possible to stream structured output?",
+  "url": "https://forum.langchain.com/t/is-it-possible-to-stream-structured-output/2179",
+  "date": "2025-11-12T15:35:56.678Z",
+  "created_at": "2025-11-12T15:35:56.678Z",
+  "last_posted_at": "2025-11-20T14:01:44.492Z",
+  "tags": [
+    "js-help"
+  ],
+  "views": 1052,
+  "posts": [
+    {
+      "post_number": 1,
+      "author": "Younes",
+      "role": "user",
+      "created_at": "2025-11-12T15:35:56.734Z",
+      "body": "I am trying to stream a response, so it can be delivered in chuncks to the user. I want to stream the ‘answer‘ part from the structured output. Is this possible? I can’t find anything in the documentations about this.\nprivate readonly agent = createAgent({\n    model: new ChatGoogleGenerativeAI({\n      model: 'gemini-2.5-flash-lite',\n      streaming: true,\n    }),\n    tools: [retrieveDocuments],\n    responseFormat: z.object({\n    answer: z.string().describe('A markdown repsonse to the user query.'),\n    resources: z.array(z.object({ name: z.string(), url: z.string() })),\n    }),\n    contextSchema: z.object({ organisationId: z.number() }),\n  });\n\n  const messages = [\n      new SystemMessage(systemPrompt.replace('[company]', organisation.name)),\n      new HumanMessage(query),\n    ];\n\n    for await (const [token] of await this.agent.stream(\n      { messages },\n      {\n        streamMode: 'messages',\n        context: { organisationId: session.organisationId },\n      },\n    )) {\n    }"
+    },
+    {
+      "post_number": 2,
+      "author": "steffen",
+      "role": "LangChain Team",
+      "created_at": "2025-11-13T16:56:41.569Z",
+      "body": "Have you checked if this documentation page is helpful:\nStreaming - Docs by LangChain\n?"
+    },
+    {
+      "post_number": 3,
+      "author": "Younes",
+      "role": "user",
+      "created_at": "2025-11-17T09:14:01.799Z",
+      "body": "Yes, I have. Might be missing something, but it doesn’t seem to document how to stream\nstructured output."
+    },
+    {
+      "post_number": 4,
+      "author": "pawel-twardziak",
+      "role": "LangChain Expert",
+      "created_at": "2025-11-17T10:09:11.183Z",
+      "body": "Hi\n@Younes\nafaik you can stream the model’s message tokens while it’s generating, but you cannot incrementally stream the parsed fields of a structured output (e.g., the\nanswer\nproperty of your\nresponseFormat\nobject). The schema is validated once the model finishes and a complete, valid JSON/tool-call payload is available. This is by design in LangChain v1/LangGraph v1."
+    },
+    {
+      "post_number": 5,
+      "author": "steffen",
+      "role": "LangChain Team",
+      "created_at": "2025-11-18T08:50:08.938Z",
+      "body": "@pawel-twardziak\nis correct. You can either use\nagent.stream\nand get a stream of individual tokens that you can assemble into the final response (which will adhere to the specified\nresponseFormat\n). Or you can run\nagent.invoke\nto get a properly typed object (but this will not support streaming the response)."
+    },
+    {
+      "post_number": 6,
+      "author": "Younes",
+      "role": "user",
+      "created_at": "2025-11-20T14:01:44.492Z",
+      "body": "Thank you!"
+    }
+  ]
+}

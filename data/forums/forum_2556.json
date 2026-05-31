@@ -1,0 +1,22 @@
+{
+  "id": "forum_2556",
+  "source_type": "forum",
+  "title": "Best Practices for Running LLM-Based Tests at Scale Without Hitting Rate Limits",
+  "url": "https://forum.langchain.com/t/best-practices-for-running-llm-based-tests-at-scale-without-hitting-rate-limits/2556",
+  "date": "2025-12-18T18:30:09.699Z",
+  "created_at": "2025-12-18T18:30:09.699Z",
+  "last_posted_at": "2025-12-18T18:30:09.753Z",
+  "tags": [
+    "python-help"
+  ],
+  "views": 90,
+  "posts": [
+    {
+      "post_number": 1,
+      "author": "arthurmarcal",
+      "role": "user",
+      "created_at": "2025-12-18T18:30:09.753Z",
+      "body": "Hi everyone,\nI’m running a large number of LLM-based tests in parallel and consistently hitting OpenAI rate limits during execution. I’d love to learn what patterns or best practices people are using to handle this at scale.\nIn particular, I’m curious about:\nHow do you typically manage concurrency when running many LLM-powered tests?\nIs using multiple OpenAI API keys ever considered a valid approach, or is that generally discouraged?\nMore context on my setup:\nI have multiple datasets representing different workflows and expected outcomes. Each dataset contains traces that:\nFeed inputs into a\ndeepagents\n-based agent\nProduce a trajectory (tool calls, arguments, messages, decisions, etc.)\nAre evaluated by one or more LLM judges that score the trajectory against expectations\nThe judges validate things like:\nCorrect tool usage and ordering\nArguments passed to tools\nContent of generated messages\nDecisions taken given specific tool outputs\nRight now:\nTests are run locally with\npytest\nTools are mocked to isolate backend dependencies\nScenarios Framework\nis used to structure the cases\nTests are executed in parallel, which is where rate limits start to hurt\nThis works well functionally, but once the test count grows, rate limiting becomes the bottleneck.\nThanks in advance. I would really appreciate any insights or references."
+    }
+  ]
+}

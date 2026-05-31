@@ -1,0 +1,16 @@
+https://forum.langchain.com/t/multiple-response-formats-when-creating-agents/3433
+https://forum.langchain.com/t/when-i-call-a-mcp-tool-using-fastmcp-i-am-not-getting-context-initialized-correctly/3354
+https://forum.langchain.com/t/prevent-last-llm-call-after-tool-calls/3063
+https://forum.langchain.com/t/how-to-delete-traces-or-runs/199
+https://forum.langchain.com/t/how-to-enable-langsmith-tracing-in-my-project/3077
+https://forum.langchain.com/t/llm-outputting-a-trajectory/3062
+https://forum.langchain.com/t/does-langchain-run-locally/2615
+https://forum.langchain.com/t/best-practices-for-running-llm-based-tests-at-scale-without-hitting-rate-limits/2556
+https://forum.langchain.com/t/createagent-how-to-skip-tool-handling-and-return-only-the-ai-message/2523
+https://forum.langchain.com/t/could-not-find-recursivecharactertextsplitter/1828
+https://forum.langchain.com/t/i-hope-to-get-some-recommendations-for-practical-skills/3830
+https://forum.langchain.com/t/how-do-i-trim-messages-stored-in-memory-before-invoking/2274
+https://forum.langchain.com/t/is-it-possible-to-stream-structured-output/2179
+https://forum.langchain.com/t/controlled-tool-calling-in-langchain/2182
+https://forum.langchain.com/t/how-to-access-tool-call-id-using-runtime/2166
+

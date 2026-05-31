@@ -1,0 +1,36 @@
+{
+  "id": "forum_2166",
+  "source_type": "forum",
+  "title": "How to access tool call id using runtime",
+  "url": "https://forum.langchain.com/t/how-to-access-tool-call-id-using-runtime/2166",
+  "date": "2025-11-11T09:39:21.300Z",
+  "created_at": "2025-11-11T09:39:21.300Z",
+  "last_posted_at": "2025-11-11T12:21:43.711Z",
+  "tags": [
+    "python-help"
+  ],
+  "views": 672,
+  "posts": [
+    {
+      "post_number": 1,
+      "author": "Jameskanyiri",
+      "role": "user",
+      "created_at": "2025-11-11T09:39:21.355Z",
+      "body": "I have a tool i am trying to access the tool call id using run time but i ma getting this error\n**TypeError(“handle_site_selection() missing 1 required positional argument: ‘runtime’”)\n**\nMy code\nfrom langchain.tools import tool, ToolRuntime\n\n@tool(“site_selection”, description=SITE_SELECTION_DESCRIPTION, args_schema=SiteSelectionInput )\n\ndef handle_site_selection(\n\ncountry: str,\n\nlocation: str,\n\nsystem_capacity_kw: float,\n\ncapex_per_kw: float,\n\nsearch_radius_km: float,\n\nmax_sites: int,\n\nruntime: ToolRuntime,\n\n) → Command:\n\n“”\" Perform site selection analysis for a project “”\"\n\n# Get the tool call id\n\ntool_call_id = runtime.tool_call_id\n\n## Return an update to the state with the site selection results\n\nreturn Command(\n\nupdate={\n\n“messages”: [\n\nToolMessage(content=”site selection result”, tool_call_id=tool_call_id),],\n\n    }\n\n)"
+    },
+    {
+      "post_number": 2,
+      "author": "pawel-twardziak",
+      "role": "LangChain Expert",
+      "created_at": "2025-11-11T11:48:13.434Z",
+      "body": "Hi\n@Jameskanyiri\nThe error means the\nruntime\nparameter is not being injected when your tool runs. There are two common causes and two clean fixes:\nCause A: Using\n@tool(..., args_schema=...)\nhides the\nruntime\nparameter from the tool’s inferred input schema, so the LangGraph\nToolNode\ncan’t detect it and doesn’t inject it.\nCause B: Invoking the tool outside of LangGraph’s\nToolNode\n/agent flow (e.g., calling the function or tool directly) - injection only happens when tools are executed by the graph or the new v1 agents.\nPick one of the following fixes.\nUse ToolRuntime injection (remove args_schema and run via ToolNode/agent)\nfrom langchain_core.tools import tool\nfrom langchain.tools import ToolRuntime\nfrom langgraph.types import Command\nfrom langchain_core.messages import ToolMessage\n\n@tool(\"site_selection\", description=SITE_SELECTION_DESCRIPTION)\ndef handle_site_selection(\n    country: str,\n    location: str,\n    system_capacity_kw: float,\n    capex_per_kw: float,\n    search_radius_km: float,\n    max_sites: int,\n    runtime: ToolRuntime,\n) -> Command:\n    tool_call_id = runtime.tool_call_id\n    return Command(update={\"messages\": [ToolMessage(\"site selection result\", tool_call_id=tool_call_id)]})\nEnsure the tool is executed by a LangGraph\nToolNode\n(or the new v1\ncreate_agent\n) so\nToolRuntime\nis constructed and injected, giving you\nruntime.tool_call_id\n.\nKeep args_schema but inject only the tool_call_id\nImportant: if you keep\nargs_schema\n, the injected parameter must be defined on that schema. Add\ntool_call_id\nto\nSiteSelectionInput\nannotated with\nInjectedToolCallId\n, then accept it in your function.\nfrom typing_extensions import Annotated\nfrom pydantic import BaseModel\nfrom langchain_core.tools import InjectedToolCallId\n\nclass SiteSelectionInput(BaseModel):\n    country: str\n    location: str\n    system_capacity_kw: float\n    capex_per_kw: float\n    search_radius_km: float\n    max_sites: int\n    tool_call_id: Annotated[str, InjectedToolCallId]  # injected by the runtime\nfrom langchain_core.tools import tool\nfrom langgraph.types import Command\nfrom langchain_core.messages import ToolMessage\n\n@tool(\"site_selection\", description=SITE_SELECTION_DESCRIPTION, args_schema=SiteSelectionInput)\ndef handle_site_selection(\n    country: str,\n    location: str,\n    system_capacity_kw: float,\n    capex_per_kw: float,\n    search_radius_km: float,\n    max_sites: int,\n    tool_call_id: str,  # can be plain str; it's annotated in the schema\n) -> Command:\n    return Command(update={\"messages\": [ToolMessage(\"site selection result\", tool_call_id=tool_call_id)]})\nThis keeps your custom schema and still injects the call id. You do not need a\nruntime\nparameter for this option. If you instead want to inject\nruntime\nwhile keeping\nargs_schema\n, then the schema must include a\nruntime: ToolRuntime\nfield (the injector detects a field named\nruntime\nor typed as\nToolRuntime\n).\nKeep args_schema and inject runtime via the schema\nIf you want\nruntime\nwhile keeping a custom\nargs_schema\n, define it on the schema and on the function. Also allow arbitrary types so Pydantic accepts\nToolRuntime\n.\n# Pydantic v2\nfrom pydantic import BaseModel, ConfigDict\nfrom langchain.tools import ToolRuntime\n\nclass SiteSelectionInput(BaseModel):\n    model_config = ConfigDict(arbitrary_types_allowed=True)\n\n    country: str\n    location: str\n    system_capacity_kw: float\n    capex_per_kw: float\n    search_radius_km: float\n    max_sites: int\n    runtime: ToolRuntime  # injected by ToolNode\n# Pydantic v1\nfrom pydantic import BaseModel\nfrom langchain.tools import ToolRuntime\n\nclass SiteSelectionInput(BaseModel):\n    class Config:\n        arbitrary_types_allowed = True\n\n    country: str\n    location: str\n    system_capacity_kw: float\n    capex_per_kw: float\n    search_radius_km: float\n    max_sites: int\n    runtime: ToolRuntime\nfrom langchain_core.tools import tool\nfrom langgraph.types import Command\nfrom langchain_core.messages import ToolMessage\n\n@tool(\"site_selection\", description=SITE_SELECTION_DESCRIPTION, args_schema=SiteSelectionInput)\ndef handle_site_selection(\n    country: str,\n    location: str,\n    system_capacity_kw: float,\n    capex_per_kw: float,\n    search_radius_km: float,\n    max_sites: int,\n    runtime: ToolRuntime,  # must be accepted by the function\n) -> Command:\n    tool_call_id = runtime.tool_call_id\n    return Command(update={\"messages\": [ToolMessage(\"site selection result\", tool_call_id=tool_call_id)]})"
+    },
+    {
+      "post_number": 3,
+      "author": "Jameskanyiri",
+      "role": "user",
+      "created_at": "2025-11-11T12:21:43.711Z",
+      "body": "Thank you\n@pawel-twardziak"
+    }
+  ]
+}
